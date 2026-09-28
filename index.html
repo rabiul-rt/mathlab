@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="bn"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Math Lab Notebook</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#eef1f5;--card:#fff;--fg:#1b2430;--mut:#667085;--ac:#c0392b;--bd:#d0d5dd;--in:#f8fafc;--ok:#0b6b3a}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#12161c;--card:#1c222b;--fg:#e6e9ee;--mut:#98a2b3;--ac:#ef6b5b;--bd:#39424f;--in:#151a21;--ok:#5fd394}}
+:root[data-theme=dark]{--bg:#12161c;--card:#1c222b;--fg:#e6e9ee;--mut:#98a2b3;--ac:#ef6b5b;--bd:#39424f;--in:#151a21;--ok:#5fd394}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.w{max-width:820px;margin:0 auto;padding:10px}
+.win{background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden;margin-bottom:12px}
+.tb{background:linear-gradient(var(--in),var(--bg));padding:8px 12px;font-weight:600;font-size:13px;border-bottom:1px solid var(--bd);display:flex;gap:6px;align-items:center}
+.tb i{width:10px;height:10px;border-radius:50%;background:var(--ac);display:inline-block}.tb i+i{background:#e6b422}.tb i+i+i{background:#3cb371}.tb span{margin-left:6px}
+.bar{display:flex;gap:6px;flex-wrap:wrap;padding:8px}
+select,button{font:inherit;font-size:14px;padding:8px 12px;border-radius:8px;border:1px solid var(--bd);background:var(--in);color:var(--fg)}
+select{flex:1;min-width:0}
+.run{background:var(--ac);color:#fff;border-color:var(--ac);font-weight:700}
+.keys{display:flex;gap:4px;padding:0 8px 6px;overflow-x:auto}.keys button{padding:6px 10px;font-family:monospace;flex:none}
+textarea{display:block;width:100%;min-height:230px;border:0;border-top:1px solid var(--bd);border-bottom:1px solid var(--bd);padding:10px;font:16px/1.45 ui-monospace,Menlo,Consolas,monospace;background:var(--in);color:var(--fg);resize:vertical;outline:0}
+#out{padding:8px 12px}.cell{padding:6px 0;border-bottom:1px dashed var(--bd);overflow-x:auto}.cell:last-child{border:0}
+.lb{color:var(--ac);font:12px monospace;margin-bottom:2px}.err{color:var(--ac)}.hint{color:var(--mut);font-size:12px;padding:0 12px 10px}
+pre{margin:0;font:15px ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap}
+table.tf{border-collapse:collapse;font:15px ui-monospace,Menlo,Consolas,monospace}.tf td{padding:1px 10px 1px 0;text-align:right}
+svg.pl{width:100%;max-width:460px;height:auto;background:var(--in);border:1px solid var(--bd);border-radius:6px}
+.ax{stroke:var(--mut);stroke-width:1}svg text{fill:var(--mut);font-size:9px}svg text.tx{fill:var(--fg);font-size:11px;font-weight:700}
+</style></head><body><div class="w">
+<div class="win"><div class="tb"><i></i><i></i><i></i><span>Math Lab Notebook — Untitled-1</span></div>
+<div class="bar"><select id="ex"></select><button class="run" id="run">▶ Run</button><button id="clr">Clear</button><button id="rst">Reset</button></div>
+<div class="keys" id="keys"></div>
+<textarea id="src" spellcheck="false" autocapitalize="off" autocorrect="off" placeholder="Mathematica code likho... (Shift+Enter = Run)"></textarea>
+<div class="hint">Shift+Enter চাপলে Run হবে। প্রতি লাইন আলাদা statement (লাইনের শেষে ; দিলে output দেখাবে না)।</div></div>
+<div class="win"><div class="tb"><span>Output</span></div><div id="out"><div class="hint">এখানে result আসবে।</div></div></div>
+</div>
+<script>
+// ===== Mini Wolfram-language interpreter =====
+const CONST={Pi:Math.PI,E:Math.E,True:true,False:false,Red:'red',Green:'green',Blue:'blue',Black:'black',Orange:'orange',Bold:'Bold',Infinity:Infinity};
+let V={},F={},out=[],dec=false,SL=null,oc=0;
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+function lex(s){s=s.replace(/π/g,'Pi').replace(/⩵/g,'==').replace(/→/g,'->').replace(/≤/g,'<=').replace(/≥/g,'>=').replace(/≠/g,'!=');
+const re=/\s*(?:(\d+\.?\d*|\.\d+)|([A-Za-z$][A-Za-z0-9$_]*)|("[^"]*")|(\[\[|:=|->|\/\/|==|!=|<=|>=|&&|\|\||\+\+|--|[-+*\/^()\[\]{},;=<>!.#&]))/y;
+const T=[];let m;while(re.lastIndex<s.length){const p=re.lastIndex;m=re.exec(s);if(!m){if(!s.slice(p).trim())break;throw Error('Unexpected character near: '+s.slice(p,p+8))}
+T.push(m[1]?{t:'n',v:m[1]}:m[2]?{t:'i',v:m[2]}:m[3]?{t:'s',v:m[3]}:{t:'o',v:m[4]})}return T}
+const BIN={'=':[2,1],':=':[2,1],'//':[3,0],'->':[4,1],'||':[5,0],'&&':[6,0],'==':[7,0],'!=':[7,0],'<':[7,0],'>':[7,0],'<=':[7,0],'>=':[7,0],'+':[8,0],'-':[8,0],'*':[9,0],'/':[9,0],'.':[10,0],'^':[12,1]};
+function parse(src){const T=lex(src);let i=0;const nx=()=>T[i++];
+const ex=v=>{if(!T[i]||T[i].v!==v)throw Error('Expected '+v);i++};
+const args=c=>{const a=[];if(T[i]&&T[i].v==c){i++;return a}for(;;){a.push(seq());const t=nx();if(!t)throw Error('Missing '+c);if(t.v==c)return a;if(t.v!=',')throw Error('Unexpected '+t.v)}};
+function seq(){const a=[E(0)];while(T[i]&&T[i].v==';'){i++;const t=T[i];if(!t||[')','}',']',','].includes(t.v)){a.push(['null']);break}a.push(E(0))}return a.length>1?['seq',a]:a[0]}
+function prim(){const t=nx();if(!t)throw Error('Unexpected end of input');let p;
+if(t.t=='n')p=['num',parseFloat(t.v)];else if(t.t=='s')p=['str',t.v.slice(1,-1)];else if(t.t=='i')p=['sym',t.v];
+else if(t.v=='#')p=['slot'];else if(t.v=='-')return['un','-',E(11)];else if(t.v=='!')return['un','!',E(7)];
+else if(t.v=='('){p=seq();ex(')')}else if(t.v=='{')p=['list',args('}')];else throw Error('Unexpected '+t.v);
+while(T[i]&&(T[i].v=='['||T[i].v=='[[')){if(nx().v=='['[0]&&T[i-1].v=='[')p=['call',p,args(']')];else{const a=args(']');ex(']');p=['call',['sym','Part'],[p,...a]]}}return p}
+function E(m){let l=prim();for(;;){const t=T[i];if(!t)break;let op=t.t=='o'?t.v:null,imp=false;
+if(!op||op=='('||op=='#'){if(op||t.t=='n'||t.t=='i'||t.t=='s'){op='*';imp=true}else break}
+if(op=='++'||op=='--'){i++;l=['post',op,l];continue}
+if(op=='&'){if(m>1)break;i++;l=['fun',l];continue}
+const b=BIN[op];if(!b||b[0]<m)break;if(!imp)i++;const r=E(b[1]?b[0]:b[0]+1);
+l=op=='//'?['call',r,[l]]:['op',op,l,r]}return l}
+const r=seq();if(i<T.length)throw Error('Unexpected '+T[i].v);return r}
+// ===== helpers =====
+const bc=(a,b,f)=>Array.isArray(a)?(Array.isArray(b)?a.map((x,i)=>bc(x,b[i],f)):a.map(x=>bc(x,b,f))):Array.isArray(b)?b.map(y=>bc(a,y,f)):f(a,b);
+const mp=(a,f)=>Array.isArray(a)?a.map(x=>mp(x,f)):f(a);
+const eq=(a,b)=>Array.isArray(a)?Array.isArray(b)&&a.length==b.length&&a.every((x,i)=>eq(x,b[i])):typeof a=='number'&&typeof b=='number'?Math.abs(a-b)<=1e-9*Math.max(1,Math.abs(a)):a===b;
+const dot=(a,b)=>{if(!Array.isArray(a[0])){if(!Array.isArray(b[0]))return a.reduce((s,x,i)=>s+x*b[i],0);return b[0].map((_,j)=>a.reduce((s,x,i)=>s+x*b[i][j],0))}return a.map(r=>dot(r,b))};
+const I=n=>Array.from({length:n},(_,i)=>Array.from({length:n},(_,j)=>+(i==j)));
+function rref(M){M=M.map(r=>[...r]);const R=M.length,C=M[0].length,piv=[];let r=0;for(let c=0;c<C&&r<R;c++){let p=r;for(let i=r;i<R;i++)if(Math.abs(M[i][c])>Math.abs(M[p][c]))p=i;if(Math.abs(M[p][c])<1e-7)continue;[M[r],M[p]]=[M[p],M[r]];const d=M[r][c];M[r]=M[r].map(x=>x/d);for(let i=0;i<R;i++)if(i!=r){const f=M[i][c];M[i]=M[i].map((x,j)=>x-f*M[r][j])}piv.push(c);r++}return{M,piv}}
+function eigvals(A){const n=A.length;let c=[1],M=I(n);for(let k=1;k<=n;k++){const AM=dot(A,M);c.push(-AM.reduce((s,r,i)=>s+r[i],0)/k);M=AM.map((r,i)=>r.map((x,j)=>x+(i==j?c[k]:0)))}
+const mul=(a,b)=>[a[0]*b[0]-a[1]*b[1],a[0]*b[1]+a[1]*b[0]],dv=(a,b)=>{const d=b[0]**2+b[1]**2;return[(a[0]*b[0]+a[1]*b[1])/d,(a[1]*b[0]-a[0]*b[1])/d]};
+const z=Array.from({length:n},(_,k)=>[Math.cos(k*2.4+.4)*(1+k*.3),Math.sin(k*2.4+.4)*(1+k*.3)]);
+for(let it=0;it<2000;it++)for(let i=0;i<n;i++){let p=[c[0],0];for(const k of c.slice(1)){p=mul(p,z[i]);p[0]+=k}let d=[1,0];for(let j=0;j<n;j++)if(j!=i)d=mul(d,[z[i][0]-z[j][0],z[i][1]-z[j][1]]);const q=dv(p,d);z[i]=[z[i][0]-q[0],z[i][1]-q[1]]}
+return z.map(x=>Math.round(x[0]*1e6)/1e6+0).sort((a,b)=>b-a)}
+const isP=n=>{if(n<2)return false;for(let d=2;d*d<=n;d++)if(n%d==0)return false;return true};
+const fib=n=>{let a=0,b=1;for(let i=0;i<n;i++)[a,b]=[b,a+b];return a};
+const gcd=(a,b)=>b?gcd(b,a%b):Math.abs(a);
+const num=(a,b)=>a-b;
+const sty=d=>{const o={};(Array.isArray(d)?d:[d]).forEach(e=>{if(typeof e=='string')o.c=e;else if(e&&e.thick)o.w=e.thick;else if(e&&e.dash)o.d=1});return o};
+const B={Range:(a,b,s)=>{if(b===undefined){b=a;a=1}s=s||1;const r=[];for(let x=a;x<=b+1e-9;x+=s)r.push(x);return r},
+Length:a=>a.length,Total:a=>a.reduce((s,x)=>s+x,0),Append:(l,x)=>[...l,x],Prepend:(l,x)=>[x,...l],Reverse:l=>[...l].reverse(),Sort:l=>[...l].sort(num),Flatten:l=>l.flat(Infinity),First:l=>l[0],Last:l=>l[l.length-1],Join:(...l)=>l.flat(),
+Part:(l,...i)=>i.reduce((x,k)=>x[k>0?k-1:x.length+k],l),
+Union:(...l)=>[...new Set(l.flat())].sort(num),Intersection:(a,...r)=>[...new Set(a)].filter(x=>r.every(l=>l.includes(x))).sort(num),
+Complement:(a,...r)=>[...new Set(a)].filter(x=>!r.some(l=>l.includes(x))).sort(num),
+Partition:(l,n)=>{const r=[];for(let i=0;i+n<=l.length;i+=n)r.push(l.slice(i,i+n));return r},
+Select:(l,f)=>l.filter(x=>apply(f,[x])),Prime:n=>{let c=0,k=1;while(c<n)if(isP(++k))c++;return k},PrimeQ:isP,Fibonacci:fib,
+Mod:(a,b)=>((a%b)+b)%b,Quotient:(a,b)=>Math.floor(a/b),GCD:(...a)=>a.reduce(gcd),LCM:(...a)=>a.reduce((x,y)=>x*y/gcd(x,y)),Factorial:n=>{let r=1;for(let i=2;i<=n;i++)r*=i;return r},
+Sqrt:a=>mp(a,Math.sqrt),Abs:a=>mp(a,Math.abs),Sin:a=>mp(a,Math.sin),Cos:a=>mp(a,Math.cos),Tan:a=>mp(a,Math.tan),ArcSin:a=>mp(a,Math.asin),ArcCos:a=>mp(a,Math.acos),
+ArcTan:(a,b)=>b===undefined?mp(a,Math.atan):Math.atan2(b,a),Exp:a=>mp(a,Math.exp),Log:(a,b)=>b===undefined?mp(a,Math.log):Math.log(b)/Math.log(a),
+Floor:a=>mp(a,Math.floor),Ceiling:a=>mp(a,Math.ceil),Round:a=>mp(a,Math.round),Max:(...a)=>Math.max(...a.flat()),Min:(...a)=>Math.min(...a.flat()),
+N:a=>{dec=true;return a},Print:(...a)=>{out.push(`<pre>${esc(a.map(x=>fmt(x,dec)).join(' '))}</pre>`);return null},Style:a=>a,
+Dot:dot,Cross:(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]],Norm:a=>Math.sqrt(a.flat().reduce((s,x)=>s+x*x,0)),
+Transpose:A=>A[0].map((_,j)=>A.map(r=>r[j])),IdentityMatrix:I,MatrixPower:(A,k)=>{let R=I(A.length);for(let i=0;i<k;i++)R=dot(R,A);return R},
+Det:A=>{A=A.map(r=>[...r]);let d=1,n=A.length;for(let c=0;c<n;c++){let p=c;for(let i=c;i<n;i++)if(Math.abs(A[i][c])>Math.abs(A[p][c]))p=i;if(Math.abs(A[p][c])<1e-12)return 0;if(p!=c){[A[p],A[c]]=[A[c],A[p]];d=-d}d*=A[c][c];for(let i=c+1;i<n;i++){const f=A[i][c]/A[c][c];for(let j=c;j<n;j++)A[i][j]-=f*A[c][j]}}return d},
+Inverse:A=>{const n=A.length,r=rref(A.map((row,i)=>[...row,...I(n)[i]]));if(r.piv.length<n||r.piv[n-1]>=n)throw Error('Matrix is singular');return r.M.map(x=>x.slice(n))},
+MatrixRank:A=>rref(A).piv.length,LinearSolve:(A,b)=>dot(B.Inverse(A),b),Eigenvalues:eigvals,
+Eigenvectors:A=>{const n=A.length,res=[];for(const l of[...new Set(eigvals(A))]){const{M,piv}=rref(A.map((r,i)=>r.map((x,j)=>x-(i==j?l:0))));for(let f=0;f<n;f++)if(!piv.includes(f)){const v=Array(n).fill(0);v[f]=1;piv.forEach((p,j)=>v[p]=-M[j][f]);res.push(v.map(x=>Math.abs(x)<1e-9?0:x))}}return res},
+TableForm:a=>({tf:a}),MatrixForm:a=>({tf:a}),
+Thickness:x=>({thick:x*400}),Dashing:()=>({dash:1}),RGBColor:(r,g,b)=>`rgb(${r*255|0},${g*255|0},${b*255|0})`,
+Line:p=>({path:p}),Text:(s,p)=>({text:s,p}),Point:p=>({path:[p,p]}),
+Graphics:l=>({g:{paths:[l].flat(9).filter(x=>x.path).map(x=>({pts:x.path,c:'var(--fg)',w:1.6})),texts:[l].flat(9).filter(x=>x.text!==undefined).map(x=>({s:x.text,x:x.p[0],y:x.p[1]}))}}),
+Show:(...a)=>{const g=a.filter(x=>x&&x.g);return{g:{paths:g.flatMap(x=>x.g.paths),texts:g.flatMap(x=>x.g.texts)}}}};
+const apply=(f,a)=>{if(f.fun){const o=SL;SL=a[0];try{return ev(f.fun)}finally{SL=o}}return call(['call',['sym',f.fn],a.map(x=>['val',x])])};
+function user(nm,a){const f=F[nm],o=f.p.map(p=>V[p]);f.p.forEach((p,i)=>V[p]=a[i]);try{return ev(f.b)}finally{f.p.forEach((p,i)=>o[i]===undefined?delete V[p]:V[p]=o[i])}}
+function iter(sp,f){const it=sp[1];let nm=null,vals;if(it.length==1){vals=Array.from({length:Math.floor(ev(it[0]))},(_,k)=>k+1)}
+else{nm=it[0][1];const a=ev(it[1]);if(it.length==2&&Array.isArray(a))vals=a;else{const lo=it.length==2?1:a,hi=it.length==2?a:ev(it[2]),st=it.length>3?ev(it[3]):1;vals=[];for(let x=lo;st>0?x<=hi+1e-9:x>=hi-1e-9;x+=st)vals.push(x)}}
+const o=V[nm],r=[];try{for(const v of vals){if(nm)V[nm]=v;r.push(f())}}finally{if(nm){o===undefined?delete V[nm]:V[nm]=o}}return r}
+const tbl=(e,sp)=>sp.length?iter(sp[0],()=>tbl(e,sp.slice(1))):ev(e);
+const H={Table:A=>tbl(A[0],A.slice(1)),Do:A=>{iter(A[1],()=>ev(A[0]));return null},Sum:A=>tbl(A[0],A.slice(1)).flat(9).reduce((s,x)=>s+x,0),Product:A=>tbl(A[0],A.slice(1)).flat(9).reduce((s,x)=>s*x,1),
+While:A=>{let g=0;while(ev(A[0])){ev(A[1]);if(++g>1e6)throw Error('Loop too long')}return null},
+For:A=>{let g=0;for(ev(A[0]);ev(A[1]);ev(A[2])){ev(A[3]);if(++g>1e6)throw Error('Loop too long')}return null},
+If:A=>ev(A[0])?ev(A[1]):A[2]?ev(A[2]):null,Clear:A=>{A.forEach(x=>{delete V[x[1]];delete F[x[1]]});return null},
+Integrate:A=>{const f=A[0],sp=A.slice(1),D=sp.length;const simp=lv=>{const it=sp[lv][1],nm=it[0][1],a=ev(it[1]),b=ev(it[2]);const n=D==1?400:lv==0?200:D==2?40:lv==1?20:8,h=(b-a)/n,o=V[nm];let s=0;for(let k=0;k<=n;k++){V[nm]=a+k*h;s+=(lv==D-1?ev(f):simp(lv+1))*(k==0||k==n?1:k%2?4:2)}o===undefined?delete V[nm]:V[nm]=o;return s*h/3};return simp(0)},
+Plot:A=>{const fs=A[0][0]=='list'?A[0][1]:[A[0]],sp=A[1][1],nm=sp[0][1],a=ev(sp[1]),b=ev(sp[2]);let ps=null;
+A.slice(2).forEach(x=>{if(x[0]=='op'&&x[1]=='->'&&x[2][1]=='PlotStyle')ps=ev(x[3])});const pal=['#1f77b4','#ff7f0e','#2ca02c','#d62728'],paths=[],o=V[nm];
+fs.forEach((f,k)=>{const st=ps?sty(fs.length==1?ps:ps[k]):{};let seg=[];const flush=()=>{if(seg.length>1)paths.push({pts:seg,c:st.c||pal[k%4],w:st.w||2,d:st.d});seg=[]};
+for(let j=0;j<=400;j++){const x=a+(b-a)*j/400;V[nm]=x;const y=ev(f);if(isFinite(y)&&Math.abs(y)<1e6)seg.push([x,y]);else flush()}flush()});
+o===undefined?delete V[nm]:V[nm]=o;return{g:{paths,texts:[]}}}};
+function ev(n){switch(n[0]){case'num':case'str':case'val':return n[1];case'null':return null;case'slot':return SL;
+case'sym':{const s=n[1];if(s in V)return V[s];if(s in CONST)return CONST[s];if(s in B||s in F)return{fn:s};throw Error('Undefined symbol: '+s)}
+case'list':return n[1].map(ev);case'seq':{let r;for(const x of n[1])r=ev(x);return r}
+case'un':{const v=ev(n[2]);return n[1]=='-'?mp(v,x=>-x):!v}
+case'post':{const s=n[2][1],o=V[s];V[s]=o+(n[1]=='++'?1:-1);return o}
+case'fun':return{fun:n[1]};case'call':return call(n);case'op':return op(n)}}
+function call(n){const h=n[1],nm=h[0]=='sym'?h[1]:null,A=n[2];if(nm&&H[nm]&&!F[nm])return H[nm](A);const a=A.map(ev);
+if(nm){if(F[nm])return user(nm,a);if(B[nm])return B[nm](...a);throw Error('Unknown function: '+nm)}return apply(ev(h),a)}
+function op(n){const o=n[1];const L=n[2];
+if(o=='='||o==':='){if(L[0]=='call'){F[L[1][1]]={p:L[2].map(x=>x[1].replace(/_$/,'')),b:n[3]};return null}return V[L[1]]=ev(n[3])}
+if(o=='->')return{rule:1};if(o=='&&')return ev(L)&&ev(n[3]);if(o=='||')return ev(L)||ev(n[3]);
+const a=ev(L),b=ev(n[3]);
+switch(o){case'+':return bc(a,b,(x,y)=>x+y);case'-':return bc(a,b,(x,y)=>x-y);case'*':return bc(a,b,(x,y)=>x*y);case'/':return bc(a,b,(x,y)=>x/y);case'^':return bc(a,b,Math.pow);case'.':return dot(a,b);
+case'==':return eq(a,b);case'!=':return!eq(a,b);case'<':return a<b;case'>':return a>b;case'<=':return a<=b+1e-12;case'>=':return a>=b-1e-12}}
+// ===== output =====
+function fmt(v,d){if(v===null||v===undefined)return'';if(typeof v=='number'){if(v!==v)return'Indeterminate';if(!isFinite(v))return v>0?'∞':'-∞';if(Number.isInteger(v))return String(v);
+if(d)return String(+v.toPrecision(6));const r=Math.round(v);if(Math.abs(v-r)<1e-9)return String(r);for(let q=2;q<=500;q++){const p=Math.round(v*q);if(Math.abs(v*q-p)<1e-9*q)return p+'/'+q}return String(+v.toPrecision(7))}
+if(typeof v=='boolean')return v?'True':'False';if(typeof v=='string')return v;if(Array.isArray(v))return'{'+v.map(x=>fmt(x,d)).join(', ')+'}';if(v.fn)return v.fn;return'(object)'}
+function svg(g){const P=g.paths,T=g.texts;const xs=[],ys=[];P.forEach(p=>p.pts.forEach(q=>{xs.push(q[0]);ys.push(q[1])}));T.forEach(t=>{xs.push(t.x);ys.push(t.y)});if(!xs.length)return'(empty graphic)';
+let x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);const px=(x1-x0||1)*.1,py=(y1-y0||1)*.12;x0-=px;x1+=px;y0-=py;y1+=py;
+const W=400,Hh=280,m=30,X=x=>m+(x-x0)/(x1-x0)*(W-2*m),Y=y=>Hh-m-(y-y0)/(y1-y0)*(Hh-2*m);let s=`<svg viewBox="0 0 ${W} ${Hh}" class="pl">`;
+if(x0<0&&x1>0)s+=`<line class="ax" x1="${X(0)}" y1="6" x2="${X(0)}" y2="${Hh-6}"/>`;if(y0<0&&y1>0)s+=`<line class="ax" x1="6" y1="${Y(0)}" x2="${W-6}" y2="${Y(0)}"/>`;
+for(let k=0;k<5;k++){const xv=x0+(x1-x0)*(k+.5)/5,yv=y0+(y1-y0)*(k+.5)/5;s+=`<text x="${X(xv)}" y="${Hh-m+12}" text-anchor="middle">${+xv.toPrecision(2)}</text><text x="${m-4}" y="${Y(yv)+3}" text-anchor="end">${+yv.toPrecision(2)}</text>`}
+P.forEach(p=>s+=`<polyline fill="none" stroke="${p.c}" stroke-width="${p.w}" ${p.d?'stroke-dasharray="6 5"':''} stroke-linejoin="round" points="${p.pts.map(q=>X(q[0]).toFixed(1)+','+Y(q[1]).toFixed(1)).join(' ')}"/>`);
+T.forEach(t=>s+=`<text class="tx" x="${X(t.x)}" y="${Y(t.y)-6}" text-anchor="middle">${esc(t.s)}</text>`);return s+'</svg>'}
+function render(v){if(v&&v.g)return svg(v.g);if(v&&v.tf){const rows=v.tf.map(r=>Array.isArray(r)?r:[r]);return'<table class="tf">'+rows.map(r=>'<tr>'+r.map(c=>`<td>${esc(fmt(c,dec))}</td>`).join('')+'</tr>').join('')+'</table>'}
+if(Array.isArray(v)&&v.length&&Array.isArray(v[0]))return'<pre>'+esc('{'+v.map(r=>'{'+r.map(c=>fmt(c,dec)).join(', ')+'}').join(',\n ')+'}')+'</pre>';return'<pre>'+esc(fmt(v,dec))+'</pre>'}
+function stmts(src){src=src.replace(/\(\*[\s\S]*?\*\)/g,'').replace(/^\s*In\[\d*\]:=\s*/gm,'');const r=[];let d=0,cur='',q=false;
+for(const ch of src+'\n'){if(ch=='"')q=!q;if(!q){if('([{'.includes(ch))d++;if(')]}'.includes(ch))d--}
+if(ch=='\n'&&d<=0&&!q){const t=cur.trim();if(t&&!/(&&|\|\||[-+*\/^=,<>.])$/.test(t)){r.push(t);cur=''}else cur+=' '}else cur+=ch}return r}
+function run(){out=[];for(const s of stmts(document.getElementById('src').value)){dec=false;try{const v=ev(parse(s));if(!/;\s*$/.test(s)&&v!==null&&v!==undefined)out.push(`<div class="lb">Out[${++oc}]=</div>`+render(v))}catch(e){out.push(`<pre class="err">⚠ ${esc(e.message)}\n   → ${esc(s.slice(0,80))}</pre>`)}}
+const o=document.getElementById('out');o.innerHTML=out.map(h=>`<div class="cell">${h}</div>`).join('')||'<div class="hint">(কোনো output নেই)</div>';o.scrollIntoView({behavior:'smooth',block:'start'})}
+// ===== UI =====
+const EX=[
+['Q1  Table (9 দিয়ে বিভাজ্য বাদ)',`L1 = Table[k, {k, 1, 500}];
+L2 = Table[9 k, {k, 1, 500/9}];
+L3 = Complement[L1, L2];
+L4 = Partition[L3, 5];
+TableForm[L4]`],
+['Q3  Prime ও Fibonacci',`k = 1; set1 = {};
+While[Fibonacci[k] <= 600, set1 = Append[set1, Fibonacci[k]]; k++]
+k = 1; set2 = {};
+While[Prime[k] <= 600, set2 = Append[set2, Prime[k]]; k++]
+Intersection[set1, set2]`],
+['Q5  12! (Do, While, For)',`fact1 = 1; n = 12; Do[fact1 = fact1*k, {k, n}]; fact1
+fact2 = 1; n = 12; While[n > 0, fact2 = fact2*n; n--]; fact2
+For[fact3 = 1; n = 1, n <= 12, n++, fact3 = fact3*n]
+fact3`],
+['Q6  Logic (De Morgan)',`Table[(!(p && q)) == (!p || !q), {p, {True, False}}, {q, {True, False}}]
+Table[(!(p || q)) == (!p && !q), {p, {True, False}}, {q, {True, False}}]`],
+['Q7  Matrix, Cayley-Hamilton, Eigen',`A = {{1, 2, 2}, {1, 2, -1}, {-1, 1, 4}};
+9*IdentityMatrix[3] - 15 A + 7 MatrixPower[A, 2] - MatrixPower[A, 3] // MatrixForm
+Inverse[A] // MatrixForm
+Eigenvalues[A]
+Eigenvectors[A]
+{MatrixRank[A], MatrixRank[Transpose[A]]}`],
+['Q8  Cramer\'s Rule',`D1 = {{2, 1, 1}, {1, -1, 2}, {1, 1, -1}};
+Dx = {{8, 1, 1}, {1, -1, 2}, {4, 1, -1}};
+Dy = {{2, 8, 1}, {1, 1, 2}, {1, 4, -1}};
+Dz = {{2, 1, 8}, {1, -1, 1}, {1, 1, 4}};
+{x = Det[Dx]/Det[D1], y = Det[Dy]/Det[D1], z = Det[Dz]/Det[D1]}`],
+['Q9  Triangle আঁকা',`Show[Graphics[{Line[{{1, 2}, {3, 1}, {-2, -2}, {1, 2}}],
+ Text["A(1,2)", {1, 2}], Text["B(3,1)", {3, 1}], Text["C(-2,-2)", {-2, -2}]}]]`],
+['Q10(ii)  Axis এর সাথে কোণ',`u = {1, 2, -3};
+Table[ArcCos[u.e/Norm[u]], {e, {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}}] // N`],
+['Q13  Shortest distance',`p1 = {1, -2, 3}; d1 = {2, 3, 4};
+p2 = {2, -3, 5}; d2 = {3, 4, 5};
+c = Cross[d1, d2];
+Abs[(p2 - p1).c]/Norm[c] // N`],
+['Q14  sin(πx) ও x+2 এক গ্রাফে',`f[x_] := Sin[Pi*x];
+g[x_] := x + 2;
+g1 = Plot[f[x], {x, -3, 1}, PlotStyle -> {RGBColor[1, 0, 0], Thickness[0.02]}];
+g2 = Plot[g[x], {x, -3, 1}, PlotStyle -> {RGBColor[0, 0, 1], Dashing[0.01]}];
+Show[g1, g2]`],
+['Q15  দুই function plot',`Plot[{x^2 + 2, x^3 - x + 2}, {x, -5, 5}, PlotStyle -> {RGBColor[0, 1, 0], RGBColor[1, 0, 0]}]`],
+['Q16  Continuity (numeric)',`f[x_] := Abs[x + 2] + Abs[x];
+{f[-2 + 10^-9], f[-2 - 10^-9], f[-2]}`],
+['Q17  Volume (numeric ≈ 16π)',`Integrate[1, {x, -4, 4}, {y, -Sqrt[16 - x^2]/4, Sqrt[16 - x^2]/4}, {z, 0, x + 4}] // N
+16 Pi // N`],
+['Q18  Triple integral',`Integrate[x^2 + y^2 - z^2, {x, -4, 4}, {y, -3, 3}, {z, 0, 1}]`],
+['Q19  Parabola-র area',`Integrate[y - (y^2 - 5)/4, {y, -1, 5}]`],
+['Free  খালি notebook','']];
+const sel=document.getElementById('ex'),src=document.getElementById('src');
+sel.innerHTML='<option value="">— Example / প্রশ্ন বাছো —</option>'+EX.map((e,i)=>`<option value="${i}">${esc(e[0])}</option>`).join('');
+sel.onchange=()=>{if(sel.value!==''){src.value=EX[sel.value][1];document.getElementById('out').innerHTML='<div class="hint">▶ Run চাপো।</div>'}};
+document.getElementById('run').onclick=run;
+document.getElementById('clr').onclick=()=>{src.value='';document.getElementById('out').innerHTML=''};
+document.getElementById('rst').onclick=()=>{V={};F={};oc=0;document.getElementById('out').innerHTML='<div class="hint">Variables reset হয়েছে।</div>'};
+src.addEventListener('keydown',e=>{if(e.key=='Enter'&&e.shiftKey){e.preventDefault();run()}});
+document.getElementById('keys').innerHTML=['[',']','{','}','(',')',',',';','=',':=','_','->','#','&','^','//N','//MatrixForm'].map(k=>`<button>${esc(k)}</button>`).join('');
+document.getElementById('keys').onclick=e=>{if(e.target.tagName!='BUTTON')return;const t=e.target.textContent,s=src.selectionStart;src.setRangeText(t,s,src.selectionEnd,'end');src.focus()};
+</script></body></html>
