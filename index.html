@@ -404,4 +404,15 @@ src.addEventListener('keydown',e=>{if(e.key=='Enter'&&e.shiftKey){e.preventDefau
 document.getElementById('keys').innerHTML=['[',']','{','}','(',')',',',';','=',':=','_','→','⩵','≤','≥','π','√','#','&','^','//N','//MatrixForm'].map(k=>`<button>${esc(k)}</button>`).join('');
 document.getElementById('keys').onclick=e=>{if(e.target.tagName!='BUTTON')return;const t=e.target.textContent,s=src.selectionStart;src.setRangeText(t,s,src.selectionEnd,'end');src.focus()};
 }
-</script></body></html>
+</script>
+<p>L1 = Table[k, {k, 1, 500}];
+L2 = Table[9 k, {k, 1, 500 / 9}];
+L3 = Complement[L1, L2];
+L4 = Partition[L3, 5];
+TableForm[L4, TableAlignments → Right]
+</p>
+<p>p = 4 x^3 + 3 x^2 - x + 2;
+a = Coefficient[p, x, 3];
+b = Coefficient[p, x, 2];
+s = Solve[b - 3 a h ⩵ 0, h][[1, 1, 2]];
+q = Expand[p /. x → y - s]</p></body></html>
