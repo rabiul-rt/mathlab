@@ -415,4 +415,21 @@ TableForm[L4, TableAlignments → Right]
 a = Coefficient[p, x, 3];
 b = Coefficient[p, x, 2];
 s = Solve[b - 3 a h ⩵ 0, h][[1, 1, 2]];
-q = Expand[p /. x → y - s]</p></body></html>
+q = Expand[p /. x → y - s]</p>
+<p>k = 1;
+set1 = {};
+While[Fibonacci[k] ≤ 600, set1 = Append[set1, Fibonacci[k]]; k++]
+k = 1;
+set2 = {};
+While[Prime[k] ≤ 600, set2 = Append[set2, Prime[k]]; k++]
+Intersection[set1, set2]</p>
+ <p>p = (x - 1) (x - 2)^2 (x - 3)^3;
+q = (x - 1)^2 (x - 2) (x - 3)^4;
+r = PolynomialLCM[p, q]
+s = PolynomialGCD[p, q]
+</p>
+ <p>Expand[p * q] ⩵ Expand[r * s]</p>
+ <p>fact1 = 1; n = 12; Do[fact1 = fact1 * k, {k, n}]; fact1</p>
+ <p>fact2 = 1; n = 12; While[n > 0, fact2 = fact2 * n; n--]; fact2</p>
+ <p> For[fact3 = 1; n = 1, n ≤ 12, n++, fact3 = fact3 * n]</p><p></p><p></p><p></p>
+</body></html>
